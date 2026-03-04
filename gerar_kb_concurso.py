@@ -28,7 +28,7 @@ SAIDA_KB        = "data/kb_concurso.json"   # arquivo gerado
 GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
 CHUNK_SIZE      = 600    # palavras por chunk
 CHUNK_OVERLAP   = 80     # sobreposição entre chunks
-DELAY_EMBEDDING = 0.5    # segundos entre chamadas (evita rate limit)
+DELAY_EMBEDDING = 12.0    # segundos entre chamadas (evita rate limit)
 
 
 # =============================================
@@ -106,9 +106,9 @@ def gerar_embedding(texto):
     if not GEMINI_API_KEY or GEMINI_API_KEY == "cole_sua_chave_aqui":
         return None
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={GEMINI_API_KEY}"
         payload = {
-            "model": "models/text-embedding-004",
+            "model": "models/gemini-embedding-001",
             "content": {"parts": [{"text": texto[:2000]}]}
         }
         r = requests.post(url, json=payload, timeout=15)
@@ -116,7 +116,7 @@ def gerar_embedding(texto):
             return r.json()["embedding"]["values"]
         elif r.status_code == 429:
             print("   Rate limit — aguardando 10s...")
-            time.sleep(10)
+            time.sleep(30)
             r2 = requests.post(url, json=payload, timeout=15)
             if r2.status_code == 200:
                 return r2.json()["embedding"]["values"]
@@ -140,17 +140,35 @@ def main():
         print(f"Coloque seus PDFs lá e rode novamente.\n")
         return
 
-    pdfs = [f for f in os.listdir(PASTA_PDFS) if f.lower().endswith(".pdf")]
+    # Busca PDFs recursivamente em subpastas
+    pdfs = []  # lista de (caminho_completo, nome_livro, materia)
+    for raiz, dirs, arquivos in os.walk(PASTA_PDFS):
+        dirs.sort()
+        for arq in sorted(arquivos):
+            if arq.lower().endswith(".pdf"):
+                caminho_completo = os.path.join(raiz, arq)
+                # Matéria = nome da subpasta (ou "Geral" se na raiz)
+                materia = os.path.basename(raiz)
+                if materia == PASTA_PDFS:
+                    materia = "Geral"
+                nome_livro = f"[{materia}] {os.path.splitext(arq)[0]}"
+                pdfs.append((caminho_completo, nome_livro, materia))
+
     if not pdfs:
-        print(f"\nNenhum PDF encontrado em '{PASTA_PDFS}'.")
+        print(f"\nNenhum PDF encontrado em '{PASTA_PDFS}' ou subpastas.")
         print("Coloque seus PDFs lá e rode novamente.\n")
         return
 
-    print(f"\n{len(pdfs)} PDF(s) encontrado(s):")
-    for p in pdfs:
-        print(f"  - {p}")
+    # Agrupa por matéria para exibição
+    materias = {}
+    for _, _, mat in pdfs:
+        materias[mat] = materias.get(mat, 0) + 1
 
-    if GEMINI_API_KEY and GEMINI_API_KEY != "cole_sua_chave_aqui":
+    print(f"\n{len(pdfs)} PDF(s) em {len(materias)} matéria(s):")
+    for mat, qtd in sorted(materias.items()):
+        print(f"  📁 {mat}: {qtd} PDF(s)")
+
+    if False and GEMINI_API_KEY != "cole_sua_chave_aqui":
         print(f"\nEmbeddings: Gemini API ✅")
     else:
         print(f"\nEmbeddings: DESATIVADO (sem GEMINI_API_KEY)")
@@ -161,9 +179,7 @@ def main():
     todos_chunks = []
     todos_livros = []
 
-    for pdf in sorted(pdfs):
-        caminho = os.path.join(PASTA_PDFS, pdf)
-        nome_livro = os.path.splitext(pdf)[0]  # nome do arquivo sem .pdf
+    for caminho, nome_livro, materia in pdfs:
         print(f"📄 {nome_livro}")
 
         # Extrai texto
@@ -180,7 +196,7 @@ def main():
         print(f"   {len(chunks)} chunks criados")
 
         # Gera embeddings
-        if GEMINI_API_KEY and GEMINI_API_KEY != "cole_sua_chave_aqui":
+        if False and GEMINI_API_KEY != "cole_sua_chave_aqui":
             print(f"   Gerando embeddings...", end="", flush=True)
             ok = 0
             for j, chunk in enumerate(chunks):
