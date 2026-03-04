@@ -13,7 +13,7 @@ from multi_api_concurso import MultiAPIManager
 
 load_dotenv()
 
-app = Flask(__name__, template_folder=".")
+app = Flask(__name__)
 
 KNOWLEDGE_BASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'kb_concurso.json')
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
