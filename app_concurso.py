@@ -284,7 +284,7 @@ def get_user_from_token(req):
 def index():
     books = knowledge_base.get("books", []) if knowledge_base else []
     total = knowledge_base.get("total_chunks", 0) if knowledge_base else 0
-    return render_template("index_concurso.html", books=books, total_chunks=total,
+    return render_template("index.html", books=books, total_chunks=total,
                            supabase_url=SUPABASE_URL, supabase_key=SUPABASE_KEY)
 
 
